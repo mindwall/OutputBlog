@@ -35,14 +35,7 @@
         required
       ></textarea>
 
-      <button
-        type="button"
-        class="submit width"
-        @click="
-          submit()
-          saveComment()
-        "
-      >
+      <button type="button" class="submit width" @click="submit">
         COMMENT
       </button>
     </form>
@@ -52,23 +45,26 @@
 <script>
 import moment from 'moment'
 import { fireDb } from '~/plugins/firebase.js'
+import * as firebase from 'firebase/app'
 
 export default {
   props: ['slug'],
   data() {
     return {
       empty: false,
+      comments: '',
       data: {
         body: '',
         name: ''
-      },
-      comments: [{ id: 0 }]
+      }
     }
   },
+
   created() {
-    this.saveComment()
-    this.updateArray()
-    console.log(this.comments)
+    /* this.saveComment() */
+    /* this.updateArray() */
+    this.initComments()
+    this.getComments()
     console.log(this.slug)
   },
   methods: {
@@ -76,29 +72,31 @@ export default {
       if (this.data.body === '') this.empty = true
       if (this.data.name === '') this.data.name = 'Anonymus'
     },
-    async saveComment() {
-      const ref = fireDb.collection('Posts').doc(this.slug)
-      const document = {
-        comments: this.comments,
-        cools: 0
-      }
-      try {
-        await ref.set(document), { merge: true }
-      } catch (e) {
-        // TODO: error handling
-        console.error(e)
-      }
-      console.log(this.slug)
-      console.log(document)
-    },
-    async updateArray() {
+    async getComments() {
       const ref = fireDb.collection('Posts').doc(this.slug)
       try {
+        /* await ref.get().then(doc => (this.cool = doc.data().cools)) */
+        await ref.get().then(doc => console.log(doc.data()))
         await ref.get().then(doc => (this.comments = doc.data().comments))
       } catch (e) {
         // TODO: error handling
         console.error(e)
       }
+    },
+    async initComments() {
+      const ref = fireDb.collection('Posts').doc(this.slug)
+      const document = {
+        comments: [{ id: 0, name: 'mw', body: 'hello' }],
+        cools: 0
+      }
+      ref.get().then(doc => {
+        if (doc.exists) {
+          console.log('whats up doc?')
+        } else {
+          ref.set(document)
+          console.log('doc created')
+        }
+      })
     },
     submit() {
       this.validate()
@@ -110,8 +108,15 @@ export default {
           created: moment(new Date()).format('MMM Do YY'),
           name: this.data.name
         }
+        fireDb
+          .collection('Posts')
+          .doc(this.slug)
+          .update({
+            comments: firebase.firestore.FieldValue.arrayUnion({
+              ...newComment
+            })
+          })
         this.comments.push(newComment)
-
         this.data.body = ''
         this.data.name = ''
       }
